@@ -102,7 +102,7 @@ class SparseNet(nn.Module):
 
     def forward(self, image1, image2, iters, flow_init=None, test_mode=False):
         """ Estimate optical flow between pair of frames """
-
+        # image1, image2 = torch.chunk(x, 2, dim=1)
         image1 = 2 * (image1 / 255.0) - 1.0
         image2 = 2 * (image2 / 255.0) - 1.0
 
@@ -334,3 +334,32 @@ class SparseNetEighth(nn.Module):
             return flow_up
 
         return flow_predictions
+
+
+if __name__ == '__main__':
+    from ptflops import get_model_complexity_info
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--name', default='raft', help="name your experiment")
+    parser.add_argument('--num_k', type=int, default=32,
+                        help='number of hypotheses to compute for knn Faiss')
+    parser.add_argument('--small', action='store_false', help='use small model')
+    parser.add_argument('--mixed_precision', action='store_true', help='use mixed precision')
+    args = parser.parse_args()
+
+    net = SparseNet(args)
+    with torch.cuda.device(0):
+        macs, params = get_model_complexity_info(net, (6, 160, 96), as_strings=True, print_per_layer_stat=True, verbose=True)
+        print('{:<30}  {:<8}'.format('Computational complexity: ', macs))
+        print('{:<30}  {:<8}'.format('Number of parameters: ', params))
+
+        data = torch.randn((2, 6, 224, 224))
+        out = net(data)
+
+    # default
+    # Computational complexity:       12.14 GMac
+    # Number of parameters:           5.26 M  
+    # small
+    # Computational complexity:       2.68 GMac
+    # Number of parameters:           990.16 k
